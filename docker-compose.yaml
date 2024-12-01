@@ -1,0 +1,174 @@
+services:
+  frontend:
+    build: ./frontend
+    restart: always
+    container_name: frontend
+    ports:
+      - 8000:8000
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - REDIS_HOST
+      - REDIS_PASSWORD
+      - KAFKA_URL
+      - KAFKA_FRONTEND_USER
+      - KAFKA_FRONTEND_PASSWORD
+      - MINIO_URL
+      - MINIO_ROOT_USER
+      - MINIO_ROOT_PASSWORD
+    depends_on:
+      - db
+      - redis
+      - kafka
+    networks:
+      - backend
+  backend:
+    build: ./backend
+    restart: always
+    container_name: backend
+    ports:
+      - 8080:8080
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - REDIS_HOST
+      - REDIS_PASSWORD
+      - KAFKA_URL
+      - KAFKA_BACKEND_USER
+      - KAFKA_BACKEND_PASSWORD
+      - MINIO_URL
+      - MINIO_ROOT_USER
+      - MINIO_ROOT_PASSWORD
+    depends_on:
+      - db
+      - redis
+      - kafka
+    networks:
+      - backend
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER
+      - MINIO_ROOT_PASSWORD
+    command: server /data
+    ports:
+      - "9000:9000"     
+      - "9001:9001"     
+    volumes:
+      - minio_data:/data
+    networks:
+      - backend
+  db:
+    image: postgres:15-alpine
+    container_name: db
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    networks:
+      - backend
+  redis:
+    image: redis:latest
+    restart: always
+    container_name: redis
+    command:
+      [
+        "redis-server",
+        "--maxmemory", "1024mb",
+        "--maxmemory-policy", "allkeys-lru",
+        "--requirepass", "${REDIS_PASSWORD}"
+      ]
+    environment:
+      - REDIS_PASSWORD
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - backend
+
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      ZOOKEEPER_SASL_ENABLED: "false"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,SASL_PLAINTEXT://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT, SASL_PLAINTEXT:SASL_PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,SASL_PLAINTEXT://0.0.0.0:9093
+      KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_OPTS: -Djava.security.auth.login.config=/etc/kafka/kafka_config/kafka_server_jaas.conf
+      KAFKA_SUPER_USERS: User:admin,User:frontend,User:backend,User:ui
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    volumes:
+      - ./kafka_config/:/etc/kafka/kafka_config
+    networks:
+      - backend
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9093"
+      KAFKA_CLUSTERS_0_ZOOKEEPER: 'zookeeper:2181'
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: PLAIN
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${KAFKA_UI_USER}\" password=\"${KAFKA_UI_PASSWORD}\";"
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+    env_file:
+      - .env
+  # caddy:
+  #   image: caddy:latest
+  #   container_name: caddy_server
+  #   restart: unless-stopped
+  #   ports:
+  #     - 80:80
+  #     - 443:443
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+
+volumes:
+  postgres:
+  redis_data:
+  # caddy_data:
+  # caddy_config:
+  minio_data:
+
+networks:
+  backend:
+    driver: bridge

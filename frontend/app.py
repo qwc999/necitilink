@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-@app.post()
+@app.post("/")
 async def post_request(update: dict) -> None:
     """Пример отправления JSON в топик request
 

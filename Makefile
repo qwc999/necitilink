@@ -2,7 +2,7 @@ update:
 	git pull git@github.com:qwc999/necitilink.git main
 
 push:
-	git push git@github.com:qwc999/necitilink.git main
+	git push git@github.com:qwc999/necitilink.git
 
 stop:
 	sudo docker-compose stop

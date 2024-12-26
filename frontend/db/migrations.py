@@ -1,3 +1,5 @@
+"""Сюда не лезь"""
+
 from alembic import context
 from sqlalchemy import create_engine
 from .database import ormar_base_config

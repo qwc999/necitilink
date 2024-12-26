@@ -1,4 +1,6 @@
 import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from faststream import FastStream
 from faststream.kafka import KafkaBroker, KafkaMessage
 from faststream.kafka.security import SASLPlaintext
@@ -9,6 +11,7 @@ from config.settings import (
     KAFKA_USERNAME
 )
 from db.connection import connect_to_db, disconnect_from_db
+
 
 # Код отсюда
 security = SASLPlaintext(
@@ -21,8 +24,29 @@ broker = KafkaBroker(
     security=security
     )
 
-app = FastStream(broker)
+kafka_client = FastStream(broker)
 # до сюда не трогать
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Здесь прописывать код, который нужно запустить перед или после работы
+        yield разделитель до и после
+
+    Args:
+        app (FastAPI)
+    """
+    await kafka_client .start()
+    logger.info("App started")
+    await connect_to_db()
+    await kafka_client.run()
+    logger.info("App started")
+    yield
+    await kafka_client.stop()
+    await disconnect_from_db()
+    logger.info("App stopped")
+
+app = FastAPI(lifespan=lifespan)
+
 
 @broker.subscriber("request")
 async def process_job(update: dict):
@@ -32,18 +56,3 @@ async def process_job(update: dict):
         update (dict): JSON из топика request
     """
     pass
-
-
-async def main():
-    """Функция для запуска
-    """
-    await connect_to_db()
-    await app.run()
-    logger.info("App started")
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    finally:
-        asyncio.run(disconnect_from_db())

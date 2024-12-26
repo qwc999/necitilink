@@ -11,6 +11,8 @@ from config.settings import (
     KAFKA_USERNAME
 )
 from db.connection import connect_to_db, disconnect_from_db
+from db.operations import load_items_to_db, load_categories_to_db
+from s3.operations import load_images_to_s3
 
 
 # Код отсюда
@@ -35,9 +37,13 @@ async def lifespan(app: FastAPI):
     Args:
         app (FastAPI)
     """
-    await kafka_client .start()
-    logger.info("App started")
+    await kafka_client.start()
     await connect_to_db()
+    await load_items_to_db()
+    await load_categories_to_db()
+    await load_images_to_s3()
+    logger.info("App started")
+    
     await kafka_client.run()
     logger.info("App started")
     yield

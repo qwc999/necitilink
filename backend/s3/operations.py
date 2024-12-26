@@ -1,4 +1,5 @@
 from io import BytesIO
+from config.logger import logger
 from .session import aioboto_session
 
 
@@ -10,13 +11,13 @@ async def create_bucket(s3_client, bucket_name: str = "bucket"):
 @aioboto_session
 async def upload_file(
     filename: str,
-    file_bytes: BytesIO, 
+    filepath: str,
     s3_client, 
     bucket_name: str = "bucket"):
-    await s3_client.put_object(
-        Bucket=bucket_name, 
-        Key=filename, 
-        Body=file_bytes
+    await s3_client.upload_file(
+        filepath, 
+        bucket_name, 
+        filename
     )
 
 @aioboto_session
@@ -29,3 +30,12 @@ async def download_file(filename: str, s3_client, bucket_name: str = "bucket") -
     )
     file_stream.seek(0)
     return file_stream
+
+@aioboto_session
+async def load_images_to_s3(s3_client):
+    try:
+        await s3_client.head_object(Bucket="bucket", Key="image.png")
+        logger.info(f"Файл уже существует в S3.")
+    except s3_client.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == "404":
+            await upload_file("image.png", "image.png")

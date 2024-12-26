@@ -10,19 +10,19 @@ async def create_bucket(s3_client, bucket_name: str = "bucket"):
 @aioboto_session
 async def upload_file(
     filename: str,
-    file_bytes: BytesIO, 
+    filepath: str,
     s3_client, 
     bucket_name: str = "bucket"):
-    await s3_client.put_object(
-        Bucket=bucket_name, 
-        Key=filename, 
-        Body=file_bytes
+    await s3_client.upload_file(
+        filepath, 
+        bucket_name, 
+        filename
     )
 
 @aioboto_session
 async def download_file(filename: str, s3_client, bucket_name: str = "bucket") -> BytesIO:
     file_stream = BytesIO()
-    await s3_client.download_fileobj(
+    await s3_client.download_file(
         bucket_name, 
         filename, 
         file_stream

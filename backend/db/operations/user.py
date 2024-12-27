@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from db.models import User
 from fastapi import HTTPException
 
-from schemas import UserRegister, UserLogin, Message
+from schemas import UserRegister, UserLogin, ResponceAfterAuth
     
     
 
@@ -24,7 +24,7 @@ async def register(user: UserRegister):
         email=user.email,
         password_hash=hash_password(user.password),
     )
-    return Message(message="User registered successfully", user_id=new_user.id)
+    return ResponceAfterAuth(message="User registered successfully", user_id=new_user.id)
 
 
 #Авторизация пользователя
@@ -39,4 +39,4 @@ async def login(user: UserLogin):
         raise HTTPException(status_code=400, detail="Incorrect password")
 
     # Возвращаем успешный ответ
-    return Message(message="Login successful", user_id=existing_user.id)
+    return ResponceAfterAuth(message="Login successful", user_id=existing_user.id)

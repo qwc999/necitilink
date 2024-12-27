@@ -1,6 +1,8 @@
 # Определение схемы для регистрации пользователя
 from pydantic import BaseModel
 
+from db.models.item import Item
+
 
 class UserRegister(BaseModel):
     name: str
@@ -12,6 +14,10 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
-class Message(BaseModel):
+class ResponceAfterAuth(BaseModel):
     message: str
+    user_id: int
+    
+class ItemToCart(BaseModel):
+    item: Item
     user_id: int

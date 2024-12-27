@@ -1,5 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager
+from http.client import HTTPException
+from db.models.item import Item
+from db.models.user import User
+from db.operations.user import hash_password
 from fastapi import FastAPI
 from faststream import FastStream
 from faststream.kafka import KafkaBroker, KafkaMessage
@@ -10,9 +14,11 @@ from config.settings import (
     KAFKA_URL,
     KAFKA_USERNAME
 )
+from db.models import Item, Cart, User
 from db.connection import connect_to_db, disconnect_from_db
 from db.operations import load_items_to_db, load_categories_to_db
 from s3.operations import load_images_to_s3
+from schemas import ItemToCart, ResponceAfterAuth, UserLogin, UserRegister
 
 
 # Код отсюда
@@ -51,11 +57,61 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-@broker.subscriber("request")
-async def process_job(update: dict):
+@app.post("/login", response_model=UserLogin)
+async def login(user: UserLogin):
+    # Поиск пользователя по email
+    existing_user = await User.objects.filter(email=user.email).first()
+    if not existing_user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    # Проверка пароля
+    if hash_password(user.password) != existing_user.password_hash:
+        raise HTTPException(status_code=400, detail="Incorrect password")
+
+    # Возвращаем успешный ответ
+    return ResponceAfterAuth(message="Login successful", user_id=existing_user.id)
+
+@app.post("/register", response_model=UserRegister)
+async def register(user: UserRegister):
+    # Проверка, существует ли пользователь с таким email
+    existing_user = await User.objects.filter(email=user.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Создание нового пользователя
+    new_user = await User.objects.create(
+        name=user.name,
+        email=user.email,
+        password_hash=hash_password(user.password),
+    )
+    return ResponceAfterAuth(message="User registered successfully", user_id=new_user.id)
+
+@broker.subscriber("add_to_list")
+async def process_job(row: dict):
     """Пример реализации консьюмера с помощью декоратора subcriber
 
     Args:
         update (dict): JSON из топика request
     """
-    pass
+    try:
+        update = ItemToCart(**row)
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return
+    new_item = update.item
+    user = await User.objects.get(
+            id=update.user_id
+            )
+    user_cart = await Cart.objects.get_or_none(
+        user_id=user,
+        item_id=new_item.id
+        )
+    if user_cart:
+        user_cart(quantity=user_cart.quantity + 1)
+    else:
+        await Cart.objects.create(
+            user_id=user,
+            item_id=new_item.id,
+            quantity=1
+        )
+        logger.info(f"Add item ({new_item.id}) to user ({user.id}) cart")

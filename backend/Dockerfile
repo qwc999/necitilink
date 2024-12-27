@@ -6,4 +6,4 @@ RUN pip install --root-user-action=ignore -r requirements.txt
 RUN chmod 755 .
 COPY . .
 ENV TZ=Europe/Moscow
-CMD ["python", "app.py"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

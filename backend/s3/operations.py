@@ -34,8 +34,15 @@ async def download_file(filename: str, s3_client, bucket_name: str = "bucket") -
 @aioboto_session
 async def load_images_to_s3(s3_client):
     try:
+        await s3_client.head_bucket(Bucket="bucket")
+    except s3_client.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == "404":
+            await s3_client.create_bucket(Bucket="bucket")
+    try:
         await s3_client.head_object(Bucket="bucket", Key="image.png")
         logger.info(f"Файл уже существует в S3.")
     except s3_client.exceptions.ClientError as e:
+        logger.info(f"Файл не найден в S3.")
+        logger.error(e, exc_info=True)
         if e.response['Error']['Code'] == "404":
             await upload_file("image.png", "image.png")

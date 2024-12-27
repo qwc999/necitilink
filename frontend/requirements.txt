@@ -7,3 +7,4 @@ ormar[postgresql]==0.20.1
 pyJWT==2.10.1
 redis==5.2.0
 streamlit==1.41.1
+yookassa==3.4.3

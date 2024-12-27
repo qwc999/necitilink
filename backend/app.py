@@ -38,13 +38,10 @@ async def lifespan(app: FastAPI):
         app (FastAPI)
     """
     await kafka_client.start()
-    await connect_to_db()
-    await load_items_to_db()
-    await load_categories_to_db()
     await load_images_to_s3()
-    logger.info("App started")
-    
-    await kafka_client.run()
+    await connect_to_db()
+    await load_categories_to_db()   
+    await load_items_to_db()
     logger.info("App started")
     yield
     await kafka_client.stop()

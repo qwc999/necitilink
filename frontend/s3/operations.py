@@ -20,12 +20,9 @@ async def upload_file(
     )
 
 @aioboto_session
-async def download_file(filename: str, s3_client, bucket_name: str = "bucket") -> BytesIO:
-    file_stream = BytesIO()
-    await s3_client.download_file(
-        bucket_name, 
-        filename, 
-        file_stream
-    )
-    file_stream.seek(0)
-    return file_stream
+async def download_file(filename: str, s3_client, bucket_name: str = "bucket"):
+    return await s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': filename},
+                ExpiresIn=604000  # Время действия ссылки в секундах (максимум до 7 дней)
+            )

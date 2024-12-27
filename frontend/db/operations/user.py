@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from db.models import User
 from fastapi import HTTPException
 
-from schemas import UserRegister, UserLogin, Message
+from ...schemas import UserRegister, UserLogin, Message
     
     
 
